@@ -1,0 +1,83 @@
+# ─────────────────────────────────────────────────────────────────────────────
+#  ISO 20022 Test Harness — Configuration
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ── Elastic Serverless ────────────────────────────────────────────────────────
+elastic:
+  endpoint: "https://iso20022-fraud-detection-af26d3.es.eu-west-2.aws.elastic.cloud:443"
+  api_key: "T1pxbW1KNEJqdDFNSjlUQVhsTlY6ME8wekhtRlp4RUpKQlJjMUFhVjMxZw=="          # base64 encoded id:key from Kibana
+  index: "iso20022-pacs008"
+  # Alternatively use username/password:
+  # username: "elastic"
+  # password: "YOUR_PASSWORD"
+
+# ── Generation cadence ────────────────────────────────────────────────────────
+cadence:
+  # Messages per minute (normal banking hours)
+  msgs_per_minute: 100
+  # Multiplier applied outside 08:00–17:00 (quieter overnight)
+  off_hours_multiplier: 0.1
+  # Burst: occasionally send a rapid cluster of messages (realistic)
+  burst_enabled: true
+  burst_probability: 0.05        # 5% chance per cycle
+  burst_size: 10                 # messages in a burst
+
+# ── Volume ────────────────────────────────────────────────────────────────────
+volume:
+  total_messages: 500            # 0 = run indefinitely
+  batch_size: 10                 # messages generated per batch
+
+# ── Fraud injection ───────────────────────────────────────────────────────────
+fraud:
+  enabled: true
+  overall_rate: 0.05             # ~5% of messages flagged
+
+  # Each fraud type has its own probability (as share of all fraud)
+  types:
+    invalid_bic:
+      enabled: true
+      weight: 0.25               # 25% of fraud cases
+      description: "BIC code that doesn't follow SWIFT format"
+
+    sanctioned_country:
+      enabled: true
+      weight: 0.20
+      description: "Payment routed via high-risk/sanctioned jurisdiction"
+      countries: ["KP", "IR", "SY", "CU", "VE"]
+
+    round_amount:
+      enabled: true
+      weight: 0.15
+      description: "Suspiciously round large amounts (structuring indicator)"
+      threshold: 10000
+
+    rapid_succession:
+      enabled: true
+      weight: 0.15
+      description: "Same debtor sends multiple payments in quick succession"
+
+    dormant_account:
+      enabled: true
+      weight: 0.10
+      description: "Payment from account with no prior activity"
+
+    amount_spike:
+      enabled: true
+      weight: 0.15
+      description: "Amount far exceeds sender's normal transaction range"
+
+# ── Logging ───────────────────────────────────────────────────────────────────
+logging:
+  log_file: "iso20022_harness.log"   # relative to working directory
+  log_xml: true                      # write raw XML alongside JSON
+  xml_dir: "generated_xml"
+
+# ── Bank profile (the "small bank" generating payments) ───────────────────────
+bank:
+  name: "Northshire Community Bank"
+  bic: "NSHBGB2L"
+  iban_prefix: "GB"
+  # Typical payment range for this institution
+  typical_amount_min: 50
+  typical_amount_max: 50000
+  currency: "GBP"
